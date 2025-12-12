@@ -38,7 +38,7 @@ class MainWindow(QMainWindow):
         self.btn_create.clicked.connect(self.show_create)
 
         saved_path = load_config()
-        if saved_path:
+        if saved_path and Path(saved_path).exists():
             self.btn_create.setEnabled(False)
             self.btn_unlock.setEnabled(True)
         else:
@@ -315,7 +315,13 @@ class MainWindow(QMainWindow):
             self.btn_unlock.setEnabled(True)
             self.reload_tree()
             self.update_completer()
-            break
+
+            # Vault is locked → ensure app knows it's locked
+            self.vault = None
+            self.tree_widget.clear()
+            return
+        
+            # break
 
     
     def discard_changes(self):
