@@ -7,14 +7,15 @@ from PyQt6.QtGui import QIcon, QFont
 from PyQt6.QtCore import Qt, QStringListModel
 from ui.dialogs import LoginDialog, CreateVaultDialog
 from core.vault import Vault
-from database.db import DB_FILE
+# from database.db import DB_FILE
 from pathlib import Path
 import json
-
-
+from database.config import save_config,load_config
 
 def is_first_run():
-    return not DB_FILE.exists() or DB_FILE.stat().st_size == 0
+    vault_path = load_config()
+    return not vault_path or not Path(vault_path).exists()
+
 
 
 class MainWindow(QMainWindow):
@@ -36,12 +37,14 @@ class MainWindow(QMainWindow):
         self.btn_create = QPushButton('Create New Vault')
         self.btn_create.clicked.connect(self.show_create)
 
-        if is_first_run():
-            self.btn_create.setEnabled(True)
-            self.btn_unlock.setEnabled(False)
-        else:
+        saved_path = load_config()
+        if saved_path:
             self.btn_create.setEnabled(False)
             self.btn_unlock.setEnabled(True)
+        else:
+            self.btn_create.setEnabled(True)
+            self.btn_unlock.setEnabled(False)
+        
 
         top_widget = QWidget()
         top_layout = QHBoxLayout()
@@ -283,32 +286,37 @@ class MainWindow(QMainWindow):
         while True:
             if dlg.exec() != dlg.DialogCode.Accepted:
                 return
+
             pw, pw_confirm = dlg.get_passwords()
+            vault_path = dlg.get_vault_path()
+
             if len(pw) < 8:
                 QMessageBox.warning(self, "Error", "Password must be at least 8 characters.")
                 continue
             if pw != pw_confirm:
                 QMessageBox.warning(self, "Error", "Passwords do not match.")
                 continue
+            if not vault_path:
+                QMessageBox.warning(self, "Error", "Please select a location for the vault file.")
+                continue
 
-            # ---------------------------
-            # FIX: Only initialize vault once
-            # but DO NOT unlock it
-            # ---------------------------
-            Vault(pw)  # creates encrypted DB structure
+            # Create the vault at the selected path
+            self.vault = Vault(pw, db_path=vault_path)
 
-            QMessageBox.information(self, "Vault", "Vault created successfully!")
+            # Save vault path in config.json
+            save_config(vault_path)
+
+            QMessageBox.information(self, "Vault", f"Vault created successfully!\nLocation: {vault_path}")
 
             # Disable create → vault exists
             self.btn_create.setEnabled(False)
 
             # Enable unlock → user must unlock manually
             self.btn_unlock.setEnabled(True)
+            self.reload_tree()
+            self.update_completer()
+            break
 
-            # Vault is locked → ensure app knows it's locked
-            self.vault = None
-            self.tree_widget.clear()
-            return
     
     def discard_changes(self):
         if self.current_entry_id:
@@ -330,8 +338,10 @@ class MainWindow(QMainWindow):
         self.title_model.setStringList(titles)
 
     def show_unlock(self):
-        if not Path(DB_FILE).exists():
-            QMessageBox.warning(self, 'Error', 'No vault exists. Create one first.')
+        # Load vault path from config.json
+        vault_path = load_config()
+        if not vault_path or not Path(vault_path).exists():
+            QMessageBox.warning(self, "Error", "No vault exists. Create one first.")
             return
 
         dlg = LoginDialog(self)
@@ -340,15 +350,14 @@ class MainWindow(QMainWindow):
             if not password:
                 return
 
-            self.vault = Vault(password)
+            # Load vault using saved path
+            self.vault = Vault(password, db_path=vault_path)
             if not self.vault.verify_master_password():
                 QMessageBox.warning(self, 'Error', 'Wrong master password!')
                 self.vault = None
                 return
 
-            # ------------------------------
-            # FIX: Disable unlock button now
-            # ------------------------------
+            # Disable buttons appropriately
             self.btn_unlock.setEnabled(False)
 
             # Also disable "Create New Vault" because a vault already exists

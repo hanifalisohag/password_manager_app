@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QDialog, QLineEdit, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QTextEdit
+from PyQt6.QtWidgets import QDialog, QLineEdit, QLabel, QPushButton, QVBoxLayout,  QFileDialog,QDialogButtonBox
 
 class LoginDialog(QDialog):
     def __init__(self, parent=None):
@@ -28,23 +28,37 @@ class CreateVaultDialog(QDialog):
         self.confirm_input = QLineEdit()
         self.confirm_input.setEchoMode(QLineEdit.EchoMode.Password)
 
-        btn_create = QPushButton("Create")
-        btn_create.clicked.connect(self.accept)
-        btn_cancel = QPushButton("Cancel")
-        btn_cancel.clicked.connect(self.reject)
+        self.vault_path_field = QLineEdit()
+        self.vault_path_field.setPlaceholderText("Choose vault location...")
+        self.btn_browse = QPushButton("Browse")
+        self.btn_browse.clicked.connect(self.browse_location)
 
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Master Password (min 8 characters)"))
         layout.addWidget(self.password_input)
         layout.addWidget(QLabel("Confirm Password"))
         layout.addWidget(self.confirm_input)
+        layout.addWidget(QLabel("Vault File Location:"))
+        layout.addWidget(self.vault_path_field)
+        layout.addWidget(self.btn_browse)
 
-        btn_layout = QHBoxLayout()
-        btn_layout.addWidget(btn_create)
-        btn_layout.addWidget(btn_cancel)
-        layout.addLayout(btn_layout)
+        # OK / Cancel buttons
+        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons)
 
         self.setLayout(layout)
 
+    def browse_location(self):
+        path, _ = QFileDialog.getSaveFileName(self, "Select Vault Location", "", "Database Files (*.db)")
+        if path:
+            if not path.endswith(".db"):
+                path += ".db"
+            self.vault_path_field.setText(path)
+
     def get_passwords(self):
         return self.password_input.text(), self.confirm_input.text()
+
+    def get_vault_path(self):
+        return self.vault_path_field.text()

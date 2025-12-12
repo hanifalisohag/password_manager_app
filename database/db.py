@@ -3,6 +3,7 @@ from pathlib import Path
 import datetime
 import os
 
+# Default DB path
 DB_FILE = Path.home() / '.local_password_manager' / 'vault.db'
 DB_FILE.parent.mkdir(parents=True, exist_ok=True)
 
@@ -29,8 +30,11 @@ CREATE TABLE IF NOT EXISTS vault_meta (
 
 class Database:
     def __init__(self, db_path: Path = DB_FILE):
-        self.db_path = db_path
-        self.conn = sqlite3.connect(str(db_path))
+        self.db_path = Path(db_path)  # ensure Path object
+        # Ensure parent folder exists
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+
+        self.conn = sqlite3.connect(str(self.db_path))
         self._init_db()
 
     def _init_db(self):
@@ -41,7 +45,6 @@ class Database:
 
     # ----- Entry methods -----
     def add_entry(self, title_blob: bytes, username_blob: bytes, password_blob: bytes, notes_blob: bytes, salt: bytes):
-        # now = datetime.datetime.utcnow().isoformat()
         now = datetime.datetime.now().astimezone().isoformat()
         cur = self.conn.cursor()
         cur.execute(
@@ -53,7 +56,6 @@ class Database:
     
     def import_entry(self, title_blob: bytes, username_blob: bytes, password_blob: bytes,
                  notes_blob: bytes, salt: bytes, created_at: str, updated_at: str):
-        """Insert an entry keeping original timestamps (used for JSON import)."""
         cur = self.conn.cursor()
         cur.execute(
             'INSERT INTO entries (title, username, password, notes, salt, created_at, updated_at) '
@@ -65,7 +67,6 @@ class Database:
 
 
     def update_entry(self, entry_id: int, title_blob: bytes, username_blob: bytes, password_blob: bytes, notes_blob: bytes):
-        # now = datetime.datetime.utcnow().isoformat()
         now = datetime.datetime.now().astimezone().isoformat()
         cur = self.conn.cursor()
         cur.execute(

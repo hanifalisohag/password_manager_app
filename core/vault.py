@@ -1,13 +1,18 @@
-from database.db import Database
+from database.db import Database, DB_FILE
 from crypto.key_derivation import derive_key
 from crypto.cipher import encrypt, decrypt
 import os
 from datetime import datetime
 
 class Vault:
-    def __init__(self, master_password: str):
+    def __init__(self, master_password: str, db_path: str = None):
+        """
+        :param master_password: Master password for the vault
+        :param db_path: Optional path to vault.db file. Defaults to DB_FILE.
+        """
         self.master_password = master_password
-        self.db = Database()
+        self.db_path = db_path if db_path else DB_FILE
+        self.db = Database(self.db_path)
 
         # First-run: create vault test entry if not exists
         if not self.db.get_meta("vault_test"):
@@ -104,7 +109,6 @@ class Vault:
         username_blob = encrypt(key, username.encode('utf-8'))
         password_blob = encrypt(key, password.encode('utf-8'))
         notes_blob = encrypt(key, notes.encode('utf-8')) if notes else b''
-        # updated_at = datetime.now().isoformat()
         self.db.update_entry(entry_id, title_blob, username_blob, password_blob, notes_blob)
 
     def delete_item(self, entry_id: int):
