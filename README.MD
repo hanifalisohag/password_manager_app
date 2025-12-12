@@ -45,7 +45,7 @@ pyinstaller --noconfirm --onedir --windowed main.py
 ```
 Build One Exe
 ```bash
-pyinstaller --onefile --windowed main.py --name HASPassVault --add-data "resources/icons/main_logo.png:resources/icons"
+pyinstaller --onefile --windowed --name HASPassVault --icon "./resources/icons/main_logo.ico" --add-data "resources;resources" main.py
 ```
 
 ## Demo
